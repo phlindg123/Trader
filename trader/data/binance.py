@@ -1,4 +1,4 @@
-from binance import Client
+from binance import Client, enums
 import pandas as pd
 import numpy as np
 import configparser
@@ -11,8 +11,12 @@ class Binance:
         cfg.read(r"../trader/data/config.cfg")
         self.client = client = Client(cfg.get("KEYS", "binance_key", raw=""), cfg.get("SECRETS", "binance_secret", raw=""))
 
-    def _get_bars(self, symbol, start, end, interval = "1d"):
-        bars = self.client.get_historical_klines(symbol=symbol, interval=interval,limit=1000, start_str = str(int(start.timestamp())), end_str=str(int(end.timestamp())))
+    def _get_bars(self, symbol, start, end, interval = "1d", typ="SPOT"):
+        if typ.upper() == "SPOT":
+            kline_typ = enums.HistoricalKlinesType.SPOT
+        elif typ.upper() == "FUTURE":
+            kline_typ = enums.HistoricalKlinesType.FUTURES
+        bars = self.client.get_historical_klines(symbol=symbol, interval=interval,limit=1000, start_str = str(int(start.timestamp())), end_str=str(int(end.timestamp())), klines_type=kline_typ)
         cols = ["OpenTime","Open", "High","Low","Close","Volume","CloseTime","QuoteVolume","NumTrades","TakerBaseVolume","TakerQuoteVolue","Ignore"]
         df = pd.DataFrame(bars, columns=cols)
         df.OpenTime = pd.to_datetime(df.OpenTime, unit="ms")
@@ -21,15 +25,16 @@ class Binance:
         for col, dtype in df.dtypes.items():
             if dtype == "object":
                 df[col] = df[col].astype(np.float64)
+        df["Return"] = df.Close.pct_change()
         df["Symbol"] = symbol
         return df
 
-    def get_bars(self, symbols, start, end, interval="1d"):
+    def get_bars(self, symbols, start, end, interval="1d", typ="SPOT"):
         if isinstance(symbols, str):
             symbols = [symbols]
         df = []
         for symbol in symbols:
-            bars = self._get_bars(symbol, start, end, interval)
+            bars = self._get_bars(symbol, start, end, interval, typ)
             df.append(bars)
         return pd.concat(df).reset_index(drop=True)
 
