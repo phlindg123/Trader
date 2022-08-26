@@ -9,7 +9,28 @@ class Binance:
     def __init__(self, test=True):
         cfg = configparser.ConfigParser()
         cfg.read(r"../trader/data/config.cfg")
-        self.client = client = Client(cfg.get("KEYS", "binance_key", raw=""), cfg.get("SECRETS", "binance_secret", raw=""))
+        if test:
+            self.client = Client(cfg.get("KEYS", "binance_test_key", raw=""), cfg.get("SECRETS", "binance_test_secret", raw=""))
+            self.client.API_URL = 'https://testnet.binance.vision/api'
+        else:
+            self.client = Client(cfg.get("KEYS", "binance_key", raw=""), cfg.get("SECRETS", "binance_secret", raw=""))
+
+    def create_market_order(self, symbol, side, quantity, test=True):
+        if side.lower() == "b":
+            side = enums.SIDE_BUY
+        elif side.lower() == "s":
+            side = enums.SIDE_SELL
+        if test:
+            return self.client.create_test_order(symbol=symbol, side=side, quantity=quantity, type = enums.ORDER_TYPE_MARKET)
+        return self.client.create_order(symbol=symbol, side=side, quantity=quantity, type = enums.ORDER_TYPE_MARKET)
+    
+    def get_account(self, include_zero = False):
+        acc = self.client.get_account()
+        acc = pd.DataFrame(acc["balances"])
+        acc = acc.set_index("asset").free.astype(np.float64)
+        if not include_zero:
+            acc = acc[acc > 0]
+        return acc
 
     def _get_bars(self, symbol, start, end, interval = "1d", typ="SPOT"):
         if typ.upper() == "SPOT":

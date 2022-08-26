@@ -11,14 +11,23 @@ def robust_vol(price):
     vol_min = vol_min.pad()
     return np.maximum(vol, vol_min)
 
+def apply_weighting(series, weights):
+    weights = weights.reindex(series, method="pad")
+    return series * weights
+
 class PnL:
     def __init__(self, forecast, price, cash=1.0, vol_target=0.2):
         self._cash = cash
         self.price = price
         self.forecast = forecast
         self.vol_target = vol_target
-        
+        self.position = self.get_position()
         self.pnl = self.get_pnl()
+
+    def weight(self, weight):
+        weighted_capital = apply_weighting(self.capital, weight)
+        weighted_pos = apply_weighting(self.position, weight)
+        
     
     def get_position(self):
         daily_risk_target = self.vol_target / np.sqrt(365)
@@ -31,12 +40,17 @@ class PnL:
         return position * self.forecast
     
     def get_pnl(self):
-        pos = self.get_position()
+        pos = self.position
         price_ret = self.price_returns
         pos = pos.reindex(price_ret.index, method="pad")
         rets = pos.shift(1) * price_ret
         rets[pd.isna(rets)] = 0.0
         return rets
+
+    @property
+    def pct_returns(self):
+        cash = self.cash.reindex(self.pnl.index, method="pad")
+        return self.pnl / cash
     
     @property
     def sharpe(self):
