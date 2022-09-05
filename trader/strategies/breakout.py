@@ -19,5 +19,5 @@ def breakout(price, lookback=10, smooth=None):
     # gives a nice natural scaling
     output = 40.0 * ((price - roll_mean) / (roll_max - roll_min))
     smoothed_output = output.ewm(span=smooth, min_periods=np.ceil(smooth / 2.0)).mean()
-    smoothed_output[smoothed_output < 0] = 0
+    #smoothed_output[smoothed_output < 0] = 0
     return smoothed_output
